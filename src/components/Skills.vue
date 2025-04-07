@@ -13,7 +13,7 @@ const isDark = useDark({
 
 function getImageUrl(name) {
   return new URL(
-    import.meta.env.MODE === "production" ? `/portfolio-vue${name}` : `${name}`,
+    import.meta.env.MODE === "production" ? `/portfolio_vue${name}` : `${name}`,
     import.meta.url
   ).href;
 }
