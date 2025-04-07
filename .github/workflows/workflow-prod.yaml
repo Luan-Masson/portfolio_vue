@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Build
-        run: npm run build --base=/portfolio-vue
+        run: npm run build --base=/portfolio_vue
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Upload artifact
