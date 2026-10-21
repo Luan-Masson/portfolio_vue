@@ -148,8 +148,7 @@ jobs:
             docker pull '${IMAGE}'
 
             echo 'Subindo container portfolio_vue na porta ${PORT}...'
-            docker stop portfolio_vue || true
-            docker rm portfolio_vue || true
+            docker rm -f portfolio_vue 2>/dev/null || true
             docker run -d \
               --name portfolio_vue \
               --restart unless-stopped \
