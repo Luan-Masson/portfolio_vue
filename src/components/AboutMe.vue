@@ -1,4 +1,6 @@
-<script setup></script>
+<script setup>
+import { getImageUrl } from "../utils/AssetsUtils";
+</script>
 <template>
   <section class="flex w-dvw h-3/4 absolute top-2">
     <div
@@ -17,17 +19,17 @@
       v-animateonscroll="{ enterClass: 'fade-in-up', leaveClass: 'invisible' }">
         <img
           class="rounded-2xl w-32 md:w-96 shadow-xl shadow-teal-300 transition-all ease-in-out duration-300 dark:shadow-teal-800 hover:scale-110 hover:shadow-md"
-          src="../assets/imgs/img/Me.png"
+          :src="getImageUrl('Me')"
           alt=""
         />
         <img
           class="rounded-2xl max-h-16 md:max-h-32 absolute z-10 -top-4 -left-3 shadow-md shadow-teal-300 transition-all ease-in-out duration-300 dark:shadow-teal-800 hover:scale-110 hover:shadow-sm"
-          src="../assets/imgs/img/Me2.jpeg"
+          :src="getImageUrl('Me2')"
           alt=""
         />
         <img
           class="rounded-2xl max-h-20 md:max-h-48 absolute z-10 -bottom-4 -right-3 shadow-lg shadow-teal-300 transition-all ease-in-out duration-300 dark:shadow-teal-800 hover:scale-110 hover:shadow-sm"
-          src="../assets/imgs/img/Me3.png"
+          :src="getImageUrl('Me3')"
           alt=""
         />
       </div>

@@ -1,20 +1,20 @@
 <script setup>
 import SelectButton from "primevue/selectbutton";
 import { ref } from "vue";
+import { getIconUrl } from "../utils/AssetsUtils";
+import { loadLanguage } from "../i18n";
+
 let selectedLang = ref(
   localStorage.getItem("lang") === "en"
-    ? { img: "/icons/us-flag.svg", value: "en" }
-    : { img: "/icons/br-flag.svg", value: "pt" }
+    ? { img: getIconUrl("us-flag"), value: "en" }
+    : { img: getIconUrl("br-flag"), value: "pt" }
 );
 let oldOpt = selectedLang.value;
 const options = ref([
-  { img: "/icons/br-flag.svg", value: "pt" },
-  { img: "/icons/us-flag.svg", value: "en" },
+  { img: getIconUrl("br-flag"), value: "pt" },
+  { img: getIconUrl("us-flag"), value: "en" },
 ]);
 
-function getImageUrl(name) {
-  return new URL(import.meta.env.MODE === 'production' ? `/portfolio_vue${name}` : `${name}`, import.meta.url).href
-}
 verifyLang();
 
 function verifyLang(event) {
@@ -22,14 +22,15 @@ function verifyLang(event) {
     document.getElementById("page-structure").lang = "pt-BR";
     localStorage.setItem("lang", "pt");
   } else if (!selectedLang.value) {
-    selectedLang = ref(oldOpt);
+    selectedLang.value = oldOpt;
+    return;
   } else {
     document.getElementById("page-structure").lang = "en";
     localStorage.setItem("lang", selectedLang.value.value);
   }
   oldOpt = selectedLang.value;
   if (event) {
-    window.location.reload();
+    loadLanguage(selectedLang.value.value);
   }
 }
 </script>
@@ -50,7 +51,7 @@ function verifyLang(event) {
       class="select-button"
     >
       <template #option="slotProps">
-        <img class="w-6" :src="getImageUrl(slotProps.option.img)" alt="" />
+        <img class="w-6" :src="slotProps.option.img" alt="" />
       </template>
     </SelectButton>
   </header>

@@ -3,6 +3,7 @@ import Carousel from "primevue/carousel";
 import Card from "primevue/card";
 import { useDark } from "@vueuse/core";
 import { ref } from "vue";
+import { getFromApi } from "../utils/AssetsUtils";
 
 const responsiveOptions = ref([
     {
@@ -33,15 +34,12 @@ const isDark = useDark({
   valueDark: "dark",
   valueLight: "light",
 });
-
-function getImageUrl(name) {
-  return new URL(import.meta.env.MODE === 'production' ? `/portfolio_vue${name}` : `${name}`, import.meta.url).href
-}
 </script>
 
 <template>
   <div class="card">
     <Carousel
+      v-if="Object.keys($tm('projects')).length > 0"
       :value="Object.values($tm('projects'))"
       :numVisible="3"
       :numScroll="1"
@@ -59,7 +57,7 @@ function getImageUrl(name) {
               <img
                 class="w-36 p-2 drop-shadow-4xl"
                 alt="user header"
-                :src="!isDark ? getImageUrl(slotProps.data.image) : getImageUrl(slotProps.data.imageDark)"
+                :src="getFromApi(`images${!isDark ? slotProps.data.image : slotProps.data.imageDark}`)"
               />
             </div>
           </template>

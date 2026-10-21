@@ -1,8 +1,8 @@
 <script setup>
 import Card from "primevue/card";
 import Chip from "primevue/chip";
-import ScrollPanel from "primevue/scrollpanel";
 import { useDark } from "@vueuse/core";
+import { getFromApi } from "../utils/AssetsUtils";
 
 const isDark = useDark({
   selector: "body",
@@ -10,19 +10,13 @@ const isDark = useDark({
   valueDark: "dark",
   valueLight: "light",
 });
-
-function getImageUrl(name) {
-  return new URL(
-    import.meta.env.MODE === "production" ? `/portfolio_vue${name}` : `${name}`,
-    import.meta.url
-  ).href;
-}
 </script>
 <template>
   <section class="flex flex-wrap w-full h-full justify-center gap-6">
     <!-- Usar quando finalizar os i18n <h1 v-for="skills in $tm('skills')">{{ skills }}</h1> -->
     <Card
-      v-for="skillQ in $tm('skills')"
+      v-for="(skillQ, key) in $tm('skills')"
+      :key="key"
       class="w-11/12 md:w-96 h-max overflow-hidden"
       v-animateonscroll="{ enterClass: 'fade-in-up' }"
     >
@@ -31,11 +25,7 @@ function getImageUrl(name) {
           <img
             class="w-36 p-2"
             alt="user header"
-            :src="
-              !isDark
-                ? getImageUrl(skillQ.image)
-                : getImageUrl(skillQ.imageDark)
-            "
+            :src="getFromApi(`images${!isDark ? skillQ.image : skillQ.imageDark}`)"
           />
         </div>
       </template>

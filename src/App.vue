@@ -11,7 +11,6 @@ import { useToast } from "primevue/usetoast";
 import { useDark } from "@vueuse/core";
 import { ref } from "vue";
 const toast = useToast();
-let selectedLanguage = localStorage.getItem("lang");
 const isDark = useDark({
   selector: "body",
   attribute: "class",
@@ -48,6 +47,7 @@ const items = ref([
     label: "Email",
     icon: "pi pi-envelope",
     command: () => {
+      const selectedLanguage = localStorage.getItem("lang") || "pt";
       navigator.clipboard.writeText("luan0masson@gmail.com");
       toast.add({
         severity: "info",
