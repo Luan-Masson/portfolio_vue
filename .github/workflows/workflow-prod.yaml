@@ -1,56 +1,161 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Deploy Frontend to Local Server
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches:
       - main
-  pull_request:
-     branches:
-      - main
-
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets the GITHUB_TOKEN permissions to allow deployment to GitHub Pages
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# Allow one concurrent deployment
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
+  packages: write
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build-and-push:
+    name: Build e Push da Imagem Docker
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image-name.outputs.image }}
+
     steps:
-      - name: Checkout
+      - name: Checkout do código
         uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
+
+      - name: Injetar variáveis de produção (.env.production)
+        env:
+          ENV_PRODUCTION: ${{ secrets.ENV_PRODUCTION }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          if [ -n "$ENV_PRODUCTION" ]; then
+            echo "Sobrescrevendo .env.production via secret ENV_PRODUCTION..."
+            printf '%s\n' "$ENV_PRODUCTION" > .env.production
+          elif [ -n "$VITE_API_URL" ]; then
+            echo "Configurando VITE_API_URL via secret VITE_API_URL..."
+            echo "VITE_API_URL=$VITE_API_URL" > .env.production
+          fi
+
+      - name: Definir nome da imagem Docker (lowercase)
+        id: image-name
+        run: |
+          IMAGE="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
         with:
-          node-version: 18
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm install
-      - name: Build
-        run: npm run build --base=/portfolio_vue
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e Push da Imagem
+        uses: docker/build-push-action@v5
         with:
-          # Upload dist repository
-          path: './dist'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image-name.outputs.image }}:latest
+            ${{ steps.image-name.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy do Container no Servidor
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+            -o cloudflared
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
+          cloudflared --version
+
+      - name: Configurar chave SSH
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/github-deploy-key
+          chmod 600 ~/.ssh/github-deploy-key
+
+      - name: Configurar SSH
+        env:
+          SSH_SERVER: ${{ secrets.SSH_SERVER }}
+          SERVER_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_SERVER="$(printf '%s' "$SSH_SERVER" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's|^ssh://||' -e 's|/$||')"
+          SERVER_USER="$(printf '%s' "$SERVER_USER" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          SSH_PORT="${SSH_PORT:-22}"
+          touch ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          cat <<EOF > ~/.ssh/config
+          Host deploy-server $SSH_SERVER
+            HostName $SSH_SERVER
+            User $SERVER_USER
+            Port $SSH_PORT
+            IdentityFile ~/.ssh/github-deploy-key
+            UserKnownHostsFile ~/.ssh/known_hosts
+            StrictHostKeyChecking accept-new
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Diagnosticar e testar conexão SSH
+        env:
+          SSH_SERVER: ${{ secrets.SSH_SERVER }}
+          SERVER_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -eu
+          SSH_SERVER="$(printf '%s' "$SSH_SERVER" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's|^ssh://||' -e 's|/$||')"
+          SERVER_USER="$(printf '%s' "$SERVER_USER" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          SSH_PORT="${SSH_PORT:-22}"
+          if [ -z "$SSH_SERVER" ]; then
+            echo "::error::SSH_SERVER está vazio."
+            exit 1
+          fi
+          if [ -z "$SERVER_USER" ]; then
+            echo "::error::SERVER_USER está vazio."
+            exit 1
+          fi
+          echo "--- Teste de conexão ---"
+          ssh -p "$SSH_PORT" -v deploy-server "echo 'SSH funcionando!'"
+
+      - name: Deploy Frontend via Docker (somente imagem)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_PORT: ${{ secrets.APP_PORT }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          IMAGE: ${{ needs.build-and-push.outputs.image }}:latest
+        run: |
+          set -eu
+          PORT="${APP_PORT:-3000}"
+          SSH_PORT="${SSH_PORT:-22}"
+
+          ssh -p "$SSH_PORT" deploy-server "
+            set -eu
+
+            echo 'Autenticando no GitHub Container Registry...'
+            echo '${GH_TOKEN}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+            echo 'Baixando imagem ${IMAGE}...'
+            docker pull '${IMAGE}'
+
+            echo 'Subindo container portfolio_react na porta ${PORT}...'
+            docker stop portfolio_react || true
+            docker rm portfolio_react || true
+            docker run -d \
+              --name portfolio_react \
+              --restart unless-stopped \
+              -p ${PORT}:80 \
+              '${IMAGE}'
+
+            echo 'Limpando imagens antigas...'
+            docker image prune -f
+          "

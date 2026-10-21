@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   assetsDir: '',
-  base: process.env.NODE_ENV === "production" ? "/portfolio_vue/" : "/",
+  base: process.env.VITE_BASE_PATH || '/',
   assetsInclude: ['**/*.svg'],
   commonjsOptions: {
     esmExternals: true,
