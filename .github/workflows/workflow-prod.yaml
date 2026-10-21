@@ -147,11 +147,11 @@ jobs:
             echo 'Baixando imagem ${IMAGE}...'
             docker pull '${IMAGE}'
 
-            echo 'Subindo container portfolio_react na porta ${PORT}...'
-            docker stop portfolio_react || true
-            docker rm portfolio_react || true
+            echo 'Subindo container portfolio_vue na porta ${PORT}...'
+            docker stop portfolio_vue || true
+            docker rm portfolio_vue || true
             docker run -d \
-              --name portfolio_react \
+              --name portfolio_vue \
               --restart unless-stopped \
               -p ${PORT}:80 \
               '${IMAGE}'
